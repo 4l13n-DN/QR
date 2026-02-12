@@ -15,8 +15,6 @@ Accede a la herramienta online aquí:
 ## 🏴‍☠️ Descripción
 **0xAlienSec QR Generator** es una herramienta web de generación de códigos QR de alta densidad y totalmente personalizable. A diferencia de los generadores comerciales, esta herramienta se ejecuta **100% en el lado del cliente (Client-Side)**, lo que significa que los datos que introduces (claves WiFi, secretos 2FA, direcciones Crypto) **nunca** salen de tu navegador ni se envían a servidores de terceros.
 
-Diseñado con una estética *Cyberpunk/Hacker* y optimizado para operaciones de seguridad, OSINT y uso personal avanzado.
-
 ## ⚡ Características Principales
 
 ### 🛠️ Payloads Soportados
