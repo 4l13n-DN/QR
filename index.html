@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>0xAlienSec QR Generator</title>
+    
+    <script type="text/javascript" src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;900&family=Oswald:wght@700&family=Roboto+Mono:wght@500&family=Press+Start+2P&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-body: #010409; --bg-sidebar: #0d1117; --bg-card: #161b22;
+            --border: #30363d; --text-main: #e6edf3; --accent: #238636;
+            --highlight: #58a6ff; --sidebar-width: 480px;
+            --warning: #d29922; --danger: #f85149; --purple: #8957e5;
+        }
+
+        * { box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background-color: var(--bg-body); 
+            color: var(--text-main); 
+            margin: 0; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: var(--sidebar-width); background: var(--bg-sidebar);
+            border-right: 1px solid var(--border); display: flex; flex-direction: column;
+            padding: 20px; overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            font-family: 'Orbitron', sans-serif; font-size: 1.4rem; color: var(--highlight);
+            text-align: center; margin-bottom: 25px; border-bottom: 2px solid var(--border); padding-bottom: 15px;
+            text-shadow: 0 0 10px rgba(88, 166, 255, 0.3);
+        }
+
+        /* PREVIEW AREA */
+        .preview-area {
+            flex-grow: 1; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; background: radial-gradient(circle, #1c2128 0%, #010409 100%);
+            padding: 20px;
+        }
+
+        /* ACORDEONES */
+        .accordion-item { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 15px; background: var(--bg-card); box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .accordion-header {
+            padding: 15px; cursor: pointer; background: #21262d; font-size: 0.9rem;
+            font-family: 'Orbitron', sans-serif; font-weight: bold; color: var(--highlight); 
+            display: flex; justify-content: space-between; align-items: center; letter-spacing: 1px;
+            transition: background 0.2s;
+        }
+        .accordion-header:hover { background: #30363d; }
+        .accordion-content { padding: 20px; display: none; }
+        .accordion-item.active .accordion-content { display: block; }
+
+        /* TABS (3 COLUMNAS) */
+        .tabs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; }
+        .tab-btn { 
+            padding: 12px 5px; border: 1px solid var(--border); background: #0d1117; 
+            color: #8b949e; cursor: pointer; font-family: 'Roboto Mono', monospace;
+            font-size: 0.75rem; font-weight: bold; border-radius: 6px; transition: all 0.2s; text-transform: uppercase;
+        }
+        .tab-btn:hover { border-color: var(--highlight); color: white; }
+        .tab-btn.active { background: var(--highlight); color: #010409; border-color: var(--highlight); box-shadow: 0 0 10px rgba(88, 166, 255, 0.4); }
+
+        /* INPUTS */
+        label { display: block; margin-bottom: 8px; font-size: 0.8rem; color: #8b949e; font-weight: 700; font-family: 'Segoe UI', sans-serif; letter-spacing: 0.5px; }
+        input, select, textarea { 
+            width: 100%; padding: 12px; background: #010409; border: 1px solid var(--border); 
+            color: white; border-radius: 6px; font-size: 0.95rem; margin-bottom: 15px; font-family: 'Roboto Mono', monospace;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--highlight); }
+
+        /* TOOLS */
+        .tools-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 6px; margin-bottom: 20px; }
+        .tool-btn { 
+            background: #21262d; border: 1px solid var(--border); color: #c9d1d9;
+            padding: 10px; font-size: 0.7rem; font-family: 'Roboto Mono', monospace;
+            cursor: pointer; border-radius: 4px; font-weight: bold;
+        }
+        .tool-btn:hover { background: #30363d; border-color: var(--highlight); color: white; }
+        .short-btn { background: var(--purple); color: white; border: none; }
+
+        /* UTILS */
+        .inspector-bar { display: flex; justify-content: space-between; padding: 8px; background: #0d1117; border-radius: 6px; border: 1px solid var(--border); font-size: 0.75rem; margin-top: 15px; margin-bottom: 10px; font-family: 'Roboto Mono', monospace; }
+        .history-list { list-style: none; padding: 0; margin: 0; }
+        .history-item { background: #0d1117; border: 1px solid var(--border); padding: 12px; border-radius: 6px; margin-bottom: 8px; cursor: pointer; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }
+        .history-item:hover { border-color: var(--highlight); background: #1c2128; }
+        .history-item small { color: #8b949e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; font-family: 'Roboto Mono'; }
+
+        /* VIEWPORT */
+        #qr-viewport { width: 90%; max-width: 700px; height: 600px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 12px; background: rgba(255,255,255,0.03); border: 2px dashed var(--border); position: relative; }
+        #qr-container-box { background: white; padding: 45px; border-radius: 8px; box-shadow: 0 0 60px rgba(0, 0, 0, 0.7); position: relative; transform-origin: center; transition: transform 0.1s ease-out; }
+        /* FORZAMOS VISUALIZACIÓN NÍTIDA */
+        #canvas-container canvas { width: 400px !important; height: 400px !important; }
+        
+        #frame-text-render { position: absolute; bottom: 8px; left: 0; width: 100%; text-align: center; font-family: 'Orbitron', sans-serif; font-weight: 900; color: #000; font-size: 1.3rem; }
+
+        .zoom-controls { margin-top: 25px; background: var(--bg-card); padding: 12px 25px; border-radius: 30px; border: 1px solid var(--border); display: flex; align-items: center; gap: 15px; color: var(--highlight); font-family: 'Orbitron', sans-serif; font-size: 0.8rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        .main-btn { width: 100%; padding: 18px; cursor: pointer; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: bold; font-family: 'Orbitron'; font-size: 0.9rem; margin-top: 10px; letter-spacing: 1px; text-transform: uppercase; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4); }
+        .main-btn:hover { background: #2ea043; transform: translateY(-2px); }
+
+        .preset-btn { background: #21262d; border: 1px solid var(--border); color: var(--text-main); padding: 12px; border-radius: 6px; cursor: pointer; text-align: left; font-size: 0.8rem; display: flex; align-items: center; gap: 10px; transition: 0.2s; width: 100%; margin-bottom: 8px; font-family: 'Segoe UI', sans-serif; }
+        .preset-btn:hover { border-color: var(--highlight); background: #30363d; }
+        .preset-btn b { color: var(--highlight); font-family: 'Orbitron'; font-size: 0.75rem; }
+
+        .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .style-btn { background: #161b22; border: 1px solid var(--border); color: #fff; padding: 10px; cursor: pointer; border-radius: 4px; font-size: 0.75rem; display:flex; flex-direction:column; align-items:center; transition:0.2s; }
+        .style-btn:hover { border-color: var(--highlight); background: #21262d; }
+        .style-icon { width: 20px; height: 20px; background: #333; margin-bottom: 5px; border-radius: 3px; }
+
+        .row { display: flex; gap: 15px; }
+        .hidden { display: none !important; }
+
+        /* MODO IMPRESIÓN */
+        @media print {
+            .sidebar, .zoom-controls { display: none !important; }
+            body { background: white; height: auto; overflow: visible; display: block; }
+            .preview-area { background: white; padding: 0; }
+            #qr-viewport { border: none; background: white; width: 100%; height: auto; }
+            #qr-container-box { box-shadow: none; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <h2>0xAlienSec QR Generator</h2>
+
+        <div class="accordion-item active">
+            <div class="accordion-header" onclick="toggleAccordion(this)">1. Contenido del QR <span>▼</span></div>
+            <div class="accordion-content">
+                <div class="tabs-grid">
+                    <button class="tab-btn active" onclick="switchTab('text')">TXT/URL</button>
+                    <button class="tab-btn" onclick="switchTab('wifi')">WI-FI</button>
+                    <button class="tab-btn" onclick="switchTab('ssh')">SSH</button> <button class="tab-btn" onclick="switchTab('apps')">APPS</button>
+                    <button class="tab-btn" onclick="switchTab('sms')">MSG</button>
+                    <button class="tab-btn" onclick="switchTab('2fa')">2FA</button>
+                    <button class="tab-btn" onclick="switchTab('crypto')">CRYPTO</button>
+                    <button class="tab-btn" onclick="switchTab('vcard')">VCARD</button>
+                    <button class="tab-btn" onclick="switchTab('geo')">GPS</button>
+                </div>
+
+                <div id="input-text" class="mode-section">
+                    <div class="tools-row">
+                        <button class="tool-btn short-btn" onclick="shortenURL()">TINYURL</button>
+                        <button class="tool-btn" onclick="applyTool('base64')" title="Encode Base64">B64</button>
+                        <button class="tool-btn" onclick="applyTool('urlenc')" title="URL Encode">URL</button>
+                        <button class="tool-btn" onclick="applyTool('hex')" title="Hex Encode">HEX</button>
+                        <button class="tool-btn" onclick="applyTool('rot13')" title="ROT13 Cipher">R13</button>
+                    </div>
+                    <label>URL o Texto Libre</label>
+                    <input type="text" id="texto" value="https://0xaliensec.com" oninput="generarQR()">
+                </div>
+
+                <div id="input-wifi" class="mode-section hidden">
+                    <label>SSID</label><input type="text" id="wifiSSID" placeholder="Ej: Invitados_WiFi" oninput="generarQR()">
+                    <div class="row">
+                        <div style="flex:1"><label>Password</label><input type="text" id="wifiPass" placeholder="Contraseña" oninput="generarQR()"></div>
+                        <div style="flex:1"><label>Seguridad</label>
+                            <select id="wifiType" onchange="generarQR()">
+                                <option value="WPA">WPA/WPA2</option>
+                                <option value="WEP">WEP</option>
+                                <option value="nopass">Abierta</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:5px; margin-top:5px;">
+                        <input type="checkbox" id="wifiHidden" onchange="generarQR()" style="width:15px; margin:0;">
+                        <label style="margin:0; font-size:0.75rem; color:var(--warning)">Red Oculta (Hidden SSID)</label>
+                    </div>
+                </div>
+
+                <div id="input-ssh" class="mode-section hidden">
+                    <label>Usuario</label><input type="text" id="sshUser" placeholder="root" oninput="generarQR()">
+                    <label>Host / IP</label><input type="text" id="sshHost" placeholder="192.168.1.10" oninput="generarQR()">
+                    <label>Puerto (Opcional)</label><input type="text" id="sshPort" placeholder="22" oninput="generarQR()">
+                </div>
+
+                <div id="input-apps" class="mode-section hidden">
+                    <button class="preset-btn" onclick="applyDeepLink('kick')"><b>[KICK]</b> Abrir Canal 0xAlienSec</button>
+                    <button class="preset-btn" onclick="applyDeepLink('instagram')"><b>[INSTAGRAM]</b> Abrir Perfil</button>
+                    <button class="preset-btn" onclick="applyDeepLink('facebook')"><b>[FACEBOOK]</b> Abrir Página</button>
+                    <button class="preset-btn" onclick="applyDeepLink('zoom')"><b>[ZOOM]</b> Unirse a Reunión</button>
+                    <button class="preset-btn" onclick="applyDeepLink('discord')"><b>[DISCORD]</b> Unirse a Servidor</button>
+                </div>
+                <div id="input-sms" class="mode-section hidden">
+                    <div class="row"><label style="flex:1"><input type="radio" name="smsType" value="sms" checked onchange="generarQR()"> SMS</label><label style="flex:1"><input type="radio" name="smsType" value="whatsapp" onchange="generarQR()"> WA</label><label style="flex:1"><input type="radio" name="smsType" value="telegram" onchange="generarQR()"> TG</label></div>
+                    <label>Destino</label><input type="text" id="smsNum" placeholder="+34... / @user" oninput="generarQR()">
+                    <label>Mensaje</label><input type="text" id="smsMsg" placeholder="Hola..." oninput="generarQR()">
+                </div>
+                <div id="input-2fa" class="mode-section hidden">
+                    <label>Cuenta</label><input type="text" id="otpLabel" placeholder="admin@0xaliensec.com" oninput="generarQR()">
+                    <label>Emisor</label><input type="text" id="otpIssuer" value="0xAlienSec" oninput="generarQR()">
+                    <label>Secreto</label><input type="text" id="otpSecret" placeholder="JBSWY3DPEHPK3PXP" oninput="generarQR()">
+                </div>
+                <div id="input-crypto" class="mode-section hidden">
+                    <label>Moneda</label><select id="cryptoType" onchange="generarQR()"><option value="bitcoin">Bitcoin (BTC)</option><option value="ethereum">Ethereum (ETH)</option><option value="matic">Polygon (MATIC)</option></select>
+                    <label>Address</label><input type="text" id="cryptoAddr" placeholder="0x..." oninput="generarQR()">
+                    <label>Monto</label><input type="text" id="cryptoAmt" placeholder="0.0" oninput="generarQR()">
+                </div>
+                <div id="input-vcard" class="mode-section hidden"><label>Nombre</label><input type="text" id="vName" value="Alien" oninput="generarQR()"><label>Tel</label><input type="text" id="vTel" value="616059212" oninput="generarQR()"></div>
+                <div id="input-geo" class="mode-section hidden"><label>Lat</label><input type="text" id="lat" value="40.41" oninput="generarQR()"><label>Lon</label><input type="text" id="lon" value="-3.70" oninput="generarQR()"></div>
+                
+                <div class="inspector-bar">
+                    <span>CHARS: <span id="char-count">0</span></span>
+                    <span id="density-label" style="color: var(--accent);">DENSIDAD: BAJA</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <div class="accordion-header" onclick="toggleAccordion(this)">2. Diseño<span>▼</span></div>
+            <div class="accordion-content">
+                <label>Presets Artísticos</label>
+                <div class="style-grid">
+                    <div class="style-btn" onclick="applyStyle('frame')"><div class="style-icon" style="border: 2px solid red; border-radius: 4px;"></div><span>FRAME RED</span></div>
+                    <div class="style-btn" onclick="applyStyle('tech')"><div class="style-icon" style="background: linear-gradient(45deg, #000, #0ff);"></div><span>TECH CYAN</span></div>
+                    <div class="style-btn" onclick="applyStyle('fluid')"><div class="style-icon" style="border-radius: 50%; background: #444;"></div><span>FLUID DOTS</span></div>
+                    <div class="style-btn" onclick="applyStyle('neon')"><div class="style-icon" style="background: linear-gradient(90deg, #f0f, #0ff);"></div><span>NEON GRAD</span></div>
+                </div>
+
+                <hr style="border:0; border-top:1px solid var(--border); margin: 20px 0 15px 0;">
+                
+                <label style="color: var(--highlight); font-family:'Orbitron'; font-size: 0.85rem; margin-bottom: 10px;">:: CUERPO DEL QR</label>
+                
+                <label>Margen (Borde Blanco)</label>
+                <select id="qrMargin" onchange="generarQR()">
+                    <option value="0">Sin Borde (0px)</option>
+                    <option value="25">Borde Pequeño</option>
+                    <option value="50" selected>Borde Normal (Recomendado)</option>
+                </select>
+
+                <label>Forma Puntos</label>
+                <select id="dotType" onchange="generarQR()">
+                    <option value="square">Cuadrados</option><option value="dots">Círculos (Liquid)</option><option value="rounded">Redondeados</option><option value="classy">Classy (Tech)</option><option value="extra-rounded">Gota</option>
+                </select>
+
+                <div class="row">
+                    <div style="flex:1">
+                        <label style="font-size:0.7rem;">Color Principal</label>
+                        <input type="color" id="c1" value="#000000" onchange="generarQR()">
+                    </div>
+                    <div style="flex:1">
+                        <label style="font-size:0.7rem;">Color Gradiente</label>
+                        <input type="color" id="c2" value="#000000" onchange="generarQR()">
+                    </div>
+                </div>
+
+                <hr style="border:0; border-top:1px dashed var(--border); margin: 20px 0 15px 0;">
+
+                <label style="color: var(--highlight); font-family:'Orbitron'; font-size: 0.85rem; margin-bottom: 10px;">:: ESQUINAS (OJOS)</label>
+
+                <div class="row">
+                    <div style="flex:1; border-right: 1px solid var(--border); padding-right: 8px;">
+                        <label>Marco (Contorno)</label>
+                        <select id="cornerSquareType" onchange="generarQR()">
+                            <option value="">Igual al cuerpo</option><option value="square">Cuadrado</option><option value="extra-rounded">Redondo</option><option value="dot">Punto</option>
+                        </select>
+                        <label style="font-size: 0.7rem; margin-bottom: 2px;">Color Marco</label>
+                        <input type="color" id="cornerSquareColor" value="#000000" onchange="generarQR()">
+                    </div>
+
+                    <div style="flex:1; padding-left: 8px;">
+                        <label>Centro (Punto)</label>
+                        <select id="cornerDotType" onchange="generarQR()">
+                            <option value="">Igual al cuerpo</option><option value="square">Cuadrado</option><option value="dot">Punto</option>
+                        </select>
+                        <label style="font-size: 0.7rem; margin-bottom: 2px;">Color Centro</label>
+                        <input type="color" id="cornerDotColor" value="#000000" onchange="generarQR()">
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <label>Texto Debajo (Opcional)</label>
+                    <input type="text" id="frameText" placeholder="Ej: SCAN ME" oninput="updateFrame()">
+                 </div>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <div class="accordion-header" onclick="toggleAccordion(this)">3. Logo y Centro <span>▼</span></div>
+            <div class="accordion-content">
+                <div class="row" style="margin-bottom:10px;">
+                    <label style="flex:1"><input type="radio" name="mode" value="none" onchange="cambiarModo()"> Limpio</label>
+                    <label style="flex:1"><input type="radio" name="mode" value="image" onchange="cambiarModo()"> Logo</label>
+                    <label style="flex:1"><input type="radio" name="mode" value="char" checked onchange="cambiarModo()"> Letra</label>
+                </div>
+                
+                <div id="logo-controls" class="hidden">
+                    <label style="font-size:0.75rem">Tamaño Logo</label>
+                    <input type="range" id="logoSize" min="0.1" max="0.6" step="0.05" value="0.4" oninput="generarQR()">
+                    <label style="font-size:0.75rem">Margen Logo</label>
+                    <input type="range" id="logoMargin" min="0" max="20" step="1" value="5" oninput="generarQR()">
+                </div>
+                
+                <div id="img-options" class="hidden"><label>Imagen</label><input type="file" id="imageInput" accept="image/*" onchange="cargarImagen()"></div>
+                <div id="char-options" class="row">
+                    <div style="width:60px;"><label>Letra</label><input type="text" id="centerChar" maxlength="1" value="A" oninput="generarQR()" style="text-align:center;"></div>
+                    <div style="flex:1;"><label>Fuente</label><select id="fontSelector" onchange="generarQR()"><option value="Orbitron">Orbitron</option><option value="Oswald">Oswald</option><option value="Press Start 2P">Pixel</option></select></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <div class="accordion-header" onclick="toggleAccordion(this)">4. Configuración Técnica <span>▼</span></div>
+            <div class="accordion-content">
+                <label>Resolución</label>
+                <select id="resolution"><option value="400">400px</option><option value="1000" selected>1000px (Pro)</option><option value="2000">2000px (Ultra)</option></select>
+                <label>Error (ECC)</label>
+                <select id="eccLevel" onchange="generarQR()"><option value="L">L - Bajo</option><option value="M" selected>M - Medio</option><option value="Q">Q - Alto</option><option value="H">H - Máximo</option></select>
+                <label>Formato</label>
+                <select id="exportFormat"><option value="png">PNG</option><option value="svg">SVG (No texto)</option><option value="pdf">PDF</option></select>
+            </div>
+        </div>
+
+        <div class="accordion-item">
+            <div class="accordion-header" onclick="toggleAccordion(this)">5. Historial <span>▼</span></div>
+            <div class="accordion-content"><ul id="history-container" class="history-list"></ul></div>
+        </div>
+
+        <button class="main-btn" onclick="descargarFull()">GENERAR Y EXPORTAR</button>
+    </aside>
+
+    <main class="preview-area">
+        <div id="qr-viewport">
+            <div id="qr-container-box">
+                <div id="canvas-container"></div>
+                <div id="frame-text-render"></div>
+            </div>
+        </div>
+        <div class="zoom-controls">
+            <span>ZOOM (x3):</span>
+            <input type="range" id="zoomRange" min="0.4" max="3" step="0.1" value="1.0" oninput="applyZoom()">
+            <b id="zoomVal">100%</b>
+        </div>
+    </main>
+
+    <script>
+        let currentTab = 'text';
+        let uploadedImgData = "";
+        let qrHistory = [];
+
+        // CONFIGURACIÓN HD (1000px) PARA EVITAR GLITCHES
+        const qrCode = new QRCodeStyling({
+            width: 1000, height: 1000, 
+            type: "canvas",
+            imageOptions: { margin: 5, imageSize: 0.4 }
+        });
+
+        window.onload = () => {
+            qrCode.append(document.getElementById("canvas-container"));
+            loadHistory();
+            applyZoom();
+            generarQR();
+        };
+
+        function toggleAccordion(header) { header.parentElement.classList.toggle('active'); }
+        function applyZoom() {
+            const z = document.getElementById('zoomRange').value;
+            document.getElementById('qr-container-box').style.transform = `scale(${z})`;
+            document.getElementById('zoomVal').innerText = Math.round(z * 100) + "%";
+        }
+        function switchTab(mode) {
+            currentTab = mode;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.mode-section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(`input-${mode}`).classList.remove('hidden');
+            generarQR();
+        }
+
+        function applyStyle(style) {
+            if(style === 'frame') {
+                document.getElementById('dotType').value = 'square';
+                document.getElementById('c1').value = '#000000'; document.getElementById('c2').value = '#000000';
+                document.getElementById('cornerSquareType').value = 'extra-rounded';
+                document.getElementById('cornerSquareColor').value = '#e60000'; 
+                document.getElementById('cornerDotType').value = 'square';
+                document.getElementById('cornerDotColor').value = '#000000';
+            } else if(style === 'tech') {
+                document.getElementById('dotType').value = 'classy';
+                document.getElementById('c1').value = '#000000'; document.getElementById('c2').value = '#00d2ff';
+                document.getElementById('cornerSquareType').value = 'square';
+                document.getElementById('cornerSquareColor').value = '#000000';
+                document.getElementById('cornerDotColor').value = '#000000';
+            } else if(style === 'fluid') {
+                document.getElementById('dotType').value = 'dots';
+                document.getElementById('c1').value = '#2a2a2a'; document.getElementById('c2').value = '#58a6ff';
+                document.getElementById('cornerSquareType').value = 'extra-rounded';
+                document.getElementById('cornerSquareColor').value = '#000000';
+            } else if(style === 'neon') {
+                document.getElementById('dotType').value = 'square';
+                document.getElementById('c1').value = '#ff00ff'; document.getElementById('c2').value = '#00ffff';
+                document.getElementById('cornerSquareType').value = 'extra-rounded';
+                document.getElementById('cornerSquareColor').value = '#ff00ff';
+                document.getElementById('cornerDotColor').value = '#00ffff';
+            }
+            generarQR();
+        }
+
+        function applyTool(tool) {
+            let val = document.getElementById('texto').value;
+            if(tool === 'base64') val = btoa(val);
+            else if(tool === 'urlenc') val = encodeURIComponent(val);
+            else if(tool === 'rot13') val = val.replace(/[a-zA-Z]/g, c => String.fromCharCode((c <= 'Z' ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26));
+            else if(tool === 'hex') val = val.split('').map(c => c.charCodeAt(0).toString(16)).join('');
+            document.getElementById('texto').value = val;
+            generarQR();
+        }
+        function applyDeepLink(app) { switchTab('text'); if(app==='kick')document.getElementById('texto').value="https://kick.com/0xaliensec"; else if(app==='instagram')document.getElementById('texto').value="instagram://user?username=0xaliensec"; else if(app==='facebook')document.getElementById('texto').value="fb://profile/1000..."; else if(app==='zoom')document.getElementById('texto').value="zoommtg://zoom.us/join?confno=123"; else if(app==='discord')document.getElementById('texto').value="https://discord.gg/inv"; generarQR(); }
+
+        function inspectPayload(data) {
+            const count = data.length;
+            document.getElementById('char-count').innerText = count;
+            const labelEl = document.getElementById('density-label');
+            if (count < 50) { labelEl.innerText = "DENSIDAD: BAJA"; labelEl.style.color = "var(--accent)"; }
+            else if (count < 150) { labelEl.innerText = "DENSIDAD: MEDIA"; labelEl.style.color = "var(--warning)"; }
+            else { labelEl.innerText = "DENSIDAD: ALTA"; labelEl.style.color = "var(--danger)"; }
+        }
+        
+        function saveToHistory(data) { if (!data || data === " ") return; const entry = { data, time: new Date().toLocaleTimeString() }; qrHistory = [entry, ...qrHistory.filter(i => i.data !== data)].slice(0, 5); localStorage.setItem('0xalien_qr_history', JSON.stringify(qrHistory)); renderHistory(); }
+        function loadHistory() { const saved = localStorage.getItem('0xalien_qr_history'); if (saved) { qrHistory = JSON.parse(saved); renderHistory(); } }
+        function renderHistory() { const container = document.getElementById('history-container'); if (qrHistory.length === 0) { container.innerHTML = '<li style="font-size:0.6rem; color:#8b949e; text-align:center;">No hay registros</li>'; return; } container.innerHTML = qrHistory.map(item => `<li class="history-item" onclick="loadFromHistory('${item.data}')"><small>${item.data}</small><span>${item.time}</span></li>`).join(''); }
+        function loadFromHistory(data) { document.getElementById('texto').value = data; if (currentTab !== 'text') switchTab('text'); generarQR(); }
+        
+        function cambiarModo() { 
+            const m = document.querySelector('input[name="mode"]:checked').value; 
+            document.getElementById('img-options').classList.toggle('hidden', m !== 'image'); 
+            document.getElementById('char-options').classList.toggle('hidden', m !== 'char');
+            document.getElementById('logo-controls').classList.toggle('hidden', m !== 'image' && m !== 'char'); 
+            generarQR(); 
+        }
+        function cargarImagen() { const f = document.getElementById('imageInput').files[0]; if (f) { const r = new FileReader(); r.onload = (e) => { uploadedImgData = e.target.result; generarQR(); }; r.readAsDataURL(f); } }
+        async function shortenURL() { const u = document.getElementById('texto').value; try { const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(u)}`); document.getElementById('texto').value = await res.text(); generarQR(); } catch (e) { alert("Error API"); } }
+        function updateFrame() { document.getElementById('frame-text-render').innerText = document.getElementById('frameText').value; }
+
+        function generarQR() {
+            let data = "";
+            const val = (id) => document.getElementById(id).value;
+            if(currentTab === 'text') data = val('texto');
+            else if(currentTab === 'wifi') { const h = document.getElementById('wifiHidden').checked; data = `WIFI:S:${val('wifiSSID')};T:${val('wifiType')};P:${val('wifiPass')};${h?'H:true;':''};`; }
+            else if(currentTab === 'geo') data = `geo:${val('lat')},${val('lon')}`;
+            else if(currentTab === 'mail') data = `mailto:${val('mTo')}?subject=${val('mSub')}`;
+            else if(currentTab === 'vcard') data = `BEGIN:VCARD\nFN:${val('vName')}\nTEL:${val('vTel')}\nEND:VCARD`;
+            else if(currentTab === 'apps') data = document.getElementById('texto').value;
+            else if(currentTab === 'ssh') { const p = val('sshPort') ? `:${val('sshPort')}` : ''; data = `ssh://${val('sshUser')}@${val('sshHost')}${p}`; }
+            else if(currentTab === 'sms') { const n=val('smsNum'), m=val('smsMsg'), t=document.querySelector('input[name="smsType"]:checked').value; if(t==='whatsapp') data=`https://wa.me/${n}?text=${encodeURIComponent(m)}`; else if(t==='telegram') data=`https://t.me/${n.replace('@','')}`; else data=`smsto:${n}:${m}`; }
+            else if(currentTab === '2fa') { data = `otpauth://totp/${val('otpLabel')}?secret=${val('otpSecret')}&issuer=${val('otpIssuer')}`; }
+            else if(currentTab === 'crypto') { data = `${val('cryptoType')}:${val('cryptoAddr')}${val('cryptoAmt')?'?amount='+val('cryptoAmt'):''}`; }
+
+            inspectPayload(data);
+            const m = document.querySelector('input[name="mode"]:checked').value;
+
+            let finalImg = "";
+            if(m === 'image') finalImg = uploadedImgData;
+            else if(m === 'char') {
+                const canvas = document.createElement("canvas"); canvas.width = 1000; canvas.height = 1000;
+                const ctx = canvas.getContext("2d");
+                ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(500, 500, 450, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = val('c1'); ctx.font = `bold 550px "${val('fontSelector')}"`;
+                ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.fillText(val('centerChar').toUpperCase(), 500, 520);
+                finalImg = canvas.toDataURL();
+            }
+
+            const cSqType = val('cornerSquareType') || undefined;
+            const cSqColor = val('cornerSquareColor');
+            const cDotType = val('cornerDotType') || undefined;
+            const cDotColor = val('cornerDotColor');
+            
+            const logoSz = parseFloat(val('logoSize'));
+            const logoMg = parseInt(val('logoMargin'));
+            
+            // MARGEN (QUIET ZONE)
+            const marginVal = parseInt(val('qrMargin'));
+
+            qrCode.update({
+                data: data || " ",
+                margin: marginVal,
+                imageOptions: { imageSize: logoSz, margin: logoMg },
+                qrOptions: { errorCorrectionLevel: val('eccLevel') },
+                dotsOptions: { 
+                    type: val('dotType'), 
+                    gradient: { type: "linear", colorStops: [{ offset: 0, color: val('c1') }, { offset: 1, color: val('c2') }] } 
+                },
+                cornersSquareOptions: { type: cSqType, color: cSqColor },
+                cornersDotOptions: { type: cDotType, color: cDotColor },
+                image: finalImg
+            });
+            
+            const qrWrapper = document.getElementById('qr-container-box');
+            qrWrapper.style.backgroundImage = "none";
+            qrWrapper.style.backgroundColor = "white";
+            updateFrame();
+        }
+
+        async function descargarFull() {
+            const size = parseInt(document.getElementById('resolution').value);
+            const marginVal = parseInt(document.getElementById('qrMargin').value);
+            const format = document.getElementById('exportFormat').value;
+            const text = document.getElementById('frameText').value;
+
+            // 1. Renderizar QR a tamaño final con margen
+            qrCode.update({ width: size, height: size, margin: marginVal });
+
+            // Esperar a que la librería renderice el Canvas
+            setTimeout(async () => {
+                const sourceCanvas = document.querySelector('#canvas-container canvas');
+                if(!sourceCanvas) return;
+
+                let finalDataURL = "";
+
+                // SI HAY TEXTO Y NO ES SVG, HACEMOS COMPOSICIÓN MANUAL
+                if (text && format !== 'svg') {
+                    const finalCanvas = document.createElement('canvas');
+                    const ctx = finalCanvas.getContext('2d');
+                    
+                    const fontSize = Math.floor(size * 0.05); // 5% del tamaño total
+                    const textPadding = Math.floor(size * 0.05);
+                    const extraHeight = fontSize + (textPadding * 2);
+                    
+                    finalCanvas.width = size;
+                    finalCanvas.height = size + extraHeight;
+
+                    // Fondo Blanco
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+                    // Pegar el QR Original
+                    ctx.drawImage(sourceCanvas, 0, 0);
+
+                    // Pegar Texto
+                    ctx.font = `900 ${fontSize}px "Orbitron", sans-serif`;
+                    ctx.fillStyle = "#000000";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(text, size / 2, size + (extraHeight / 2) - (textPadding/2));
+                    
+                    finalDataURL = finalCanvas.toDataURL("image/png");
+                } 
+                else {
+                    // Si no hay texto o es SVG, usamos la data original
+                    // Nota: SVG no soportará el texto externo fácilmente aquí
+                    if(format !== 'svg') finalDataURL = sourceCanvas.toDataURL("image/png");
+                }
+
+                // EXPORTACIÓN
+                let saveD = (currentTab === 'text') ? document.getElementById('texto').value : `Mode: ${currentTab}`;
+                saveToHistory(saveD);
+
+                if(format === 'pdf') {
+                    const { jsPDF } = window.jspdf; 
+                    const pdf = new jsPDF();
+                    pdf.text("0xAlienSec Audit Report", 10, 10);
+                    // Usamos la imagen compuesta
+                    pdf.addImage(finalDataURL || sourceCanvas.toDataURL("image/png"), 'PNG', 40, 40, 120, 120); 
+                    pdf.save("0xAlienSec_Report.pdf");
+                } else if (format === 'png') {
+                    if (text) {
+                        // Descarga Manual del Canvas Compuesto
+                        const link = document.createElement('a');
+                        link.download = "0xAlienSec_QR.png";
+                        link.href = finalDataURL;
+                        link.click();
+                    } else {
+                        // Descarga nativa si no hubo cambios
+                        qrCode.download({ name: "0xAlienSec_QR", extension: "png" });
+                    }
+                } else {
+                    // SVG
+                    qrCode.download({ name: "0xAlienSec_QR", extension: "svg" });
+                }
+
+                // RESTAURAR VISTA PREVIA
+                qrCode.update({ width: 1000, height: 1000, margin: marginVal }); 
+
+            }, 250);
+        }
+    </script>
+</body>
+</html>
